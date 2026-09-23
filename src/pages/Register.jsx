@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { authService } from '../api/authService';
 const Register = () => {
+
+  const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -30,7 +33,8 @@ const Register = () => {
 
       console.log('Kayıt başarılı:', response);
 
-      setMessage('Kayıt Başarılı! Aramıza hoş geldin.');
+      setMessage('Kayıt Başarılı! Giriş sayfasına yönlendiriliyorsunuz...');
+      setTimeout(() => navigate('/login'), 1200);
 
     } catch (error) {
 
@@ -169,6 +173,10 @@ const Register = () => {
         </p>
 
       )}
+
+      <p style={{ marginTop: '15px', textAlign: 'center' }}>
+        Zaten hesabınız var mı? <Link to="/login">Giriş Yap</Link>
+      </p>
 
     </div>
 

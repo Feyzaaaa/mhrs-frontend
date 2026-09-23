@@ -1,7 +1,13 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Spin } from 'antd';
+
+// Her rolün giriş sonrası ait olduğu portal
+const ROLE_HOME = {
+  PATIENT: '/patient-dashboard',
+  DOCTOR: '/doctor-dashboard',
+  ADMIN: '/admin-dashboard',
+};
 
 export default function ProtectedRoute({ children, allowedRole }) {
   const { user, isAuthenticated } = useAuth();
@@ -11,9 +17,10 @@ export default function ProtectedRoute({ children, allowedRole }) {
     return <Navigate to="/login" replace />;
   }
 
-  // Eğer belirli bir rol şartı varsa ve kullanıcının rolü uymuyorsa ana sayfaya at
+  // Giriş yapmış ama bu sayfanın rolüne sahip değilse: oturumu kapatmadan kendi portalına geri gönder
+  // (örn. yönetici hesabıyla /patient-dashboard adresi elle yazıldığında)
   if (allowedRole && user.role !== allowedRole) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={ROLE_HOME[user.role] || '/login'} replace />;
   }
 
   // Her şey yolundaysa istenen sayfayı göster
