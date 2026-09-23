@@ -1,5 +1,6 @@
-import React, { createContext, useState, useContext } from 'react';
-import { AUTH_STORAGE_KEY } from '../api/axiosInstance';
+import React, { createContext, useState, useContext, useEffect } from 'react';
+import { message } from 'antd';
+import { AUTH_STORAGE_KEY, SESSION_EXPIRED_EVENT } from '../api/axiosInstance';
 
 // 1. Başhekimi (Context) Yaratıyoruz
 const AuthContext = createContext(null);
@@ -33,6 +34,22 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     localStorage.removeItem(AUTH_STORAGE_KEY);
   };
+
+  // Token'ın süresi dolduğunda (backend 401 döndüğünde) oturumu uygulama genelinde kapat.
+  // Böylece kullanıcı anlamsız hatalarla ekranda kalmaz; korumalı sayfalar giriş ekranına yönlendirir.
+  useEffect(() => {
+    const handleSessionExpired = () => {
+      setUser((current) => {
+        // Uyarıyı yalnızca gerçekten açık bir oturum varken göster
+        if (current) {
+          message.warning('Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın.');
+        }
+        return null;
+      });
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handleSessionExpired);
+  }, []);
 
   // Başhekimin (Context'in) tüm sisteme dağıtacağı bilgiler
   const value = {

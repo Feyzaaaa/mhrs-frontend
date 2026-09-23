@@ -27,4 +27,32 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Oturum sonlandığında tüm uygulamanın haberdar olması için: AuthContext bu olayı dinler
+export const SESSION_EXPIRED_EVENT = 'mhrs:session-expired';
+
+// YANIT DENETİMİ: Backend iki farklı durumu ayrı kodlarla bildirir.
+//   401 -> kimlik doğrulanamadı (token yok / süresi dolmuş / bozuk)  => oturumu kapat
+//   403 -> kimlik var ama rol veya sahiplik yetersiz                 => oturum korunur
+// 403'te oturumu kapatmak yanlış olurdu: kullanıcı geçerli bir oturuma sahiptir,
+// yalnızca o kaynağa erişemez.
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Giriş/kayıt istekleri hariç tutulur: hatalı şifre de 401 döner ama bu
+    // "oturum sona erdi" değildir; o hatayı giriş ekranının kendisi gösterir.
+    const requestUrl = error.config?.url || '';
+    const isAuthAttempt = requestUrl.includes('/users/login') || requestUrl.includes('/users/register');
+
+    if (error.response?.status === 401 && !isAuthAttempt) {
+      try {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+      } catch (storageError) {
+        // localStorage erişilemiyorsa yine de olayı yayınla
+      }
+      window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT));
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default axiosInstance;

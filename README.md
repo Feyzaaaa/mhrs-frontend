@@ -1,70 +1,92 @@
-# Getting Started with Create React App
+# MHRS — Merkezi Hastane Randevu Sistemi (Arayüz)
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Lisans tezi kapsamında geliştirilen randevu sisteminin React arayüzü.
+Tezin iki ekseni: **senaryo tabanlı çakışma yönetimi** ve **rol tabanlı yetkilendirme**.
 
-## Available Scripts
+- **Teknolojiler:** React 19, React Router 7, Ant Design 6, Axios
+- **Sunucu (ayrı depo):** Spring Boot — `merkezi-randevu-sistemi`
 
-In the project directory, you can run:
+---
 
-### `npm start`
+## Çalıştırma
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```bash
+npm install
+npm start     # http://localhost:3000
+npm test      # test takımı
+npm run build # üretim derlemesi
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Backend'in `http://localhost:8081` adresinde çalışıyor olması gerekir
+(adres: `src/api/axiosInstance.js`).
 
-### `npm test`
+### Örnek hesaplar
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Şifre hepsinde `123456`:
 
-### `npm run build`
+| E-posta | Rol | Portal |
+|---|---|---|
+| `admin@hastane.com` | Yönetici | `/admin-dashboard` |
+| `ahmet@hastane.com` | Doktor | `/doctor-dashboard` |
+| (Kayıt Ol ile açılan hesap) | Hasta | `/patient-dashboard` |
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+---
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+## Rol tabanlı erişim
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Her rolün **ayrı giriş ekranı** vardır (`/login/patient`, `/login/doctor`,
+`/login/admin`). Doğru şifreyle giriş yapılsa bile hesabın rolü ekranın rolüyle
+uyuşmuyorsa giriş reddedilir — hangi portalın kullanılması gerektiği söylenir.
 
-### `npm run eject`
+| Katman | Dosya | Davranış |
+|---|---|---|
+| Oturum durumu | `context/AuthContext.js` | Oturumu `localStorage`'dan geri yükler, sayfa yenilemede korunur |
+| İstek yetkisi | `api/axiosInstance.js` | Her isteğe `Bearer` token ekler |
+| Oturum sonu | `api/axiosInstance.js` | **401** → oturumu kapatır ve uyarır; **403** → oturum korunur |
+| Sayfa erişimi | `components/ProtectedRoute.jsx` | Giriş yoksa giriş ekranına; yanlış roldeyse kendi portalına yönlendirir |
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+**401 / 403 ayrımı önemlidir:** 401 "kimliğin doğrulanamadı" (token yok veya
+süresi doldu) demektir ve oturumun kapatılmasını gerektirir. 403 ise "kimliğin
+geçerli ama bu kaynağa yetkin yok" demektir; kullanıcıyı sistemden atmak yanlış
+olur. Giriş denemeleri bu kuralın dışındadır — hatalı şifre de 401 döner, ama
+onu giriş ekranının kendisi bildirir.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+---
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Portallar
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+**Hasta** (`pages/PatientDashboard.jsx`) — poliklinik/doktor/tarih seçimi ve
+sunucudan gelen müsait saatler, randevu alma ve iptal, sağlık profili (boy, kilo,
+VKİ, kan grubu, alerji), laboratuvar sonuçları. Takvimde geçmiş günler ve 30 gün
+sonrası seçilemez.
 
-## Learn More
+**Doktor** (`pages/DoctorDashboard.jsx`) — kendi hasta listesi, vaka notu ve
+reçete girişi, tahlil sonucu ekleme, randevu onaylama ve muayene tamamlama,
+izin/görev günü yönetimi.
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+**Yönetici** (`pages/AdminDashboard.jsx`) — rol ve randevu dağılımı özeti,
+kullanıcı rollerini değiştirme, poliklinik ve doktor tanımlama, sistemdeki tüm
+randevuların denetimi.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+---
 
-### Code Splitting
+## Çakışma kontrolü
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+`utils/conflictValidator.js`, istek sunucuya gönderilmeden önce hastanın aynı
+saatte başka randevusu olup olmadığını denetler ve uyarı gösterir. İptal edilmiş
+randevular çakışma sayılmaz.
 
-### Analyzing the Bundle Size
+Bu kontrol bir **kolaylıktır, güvence değildir**: tarayıcı arayüzü devre dışı
+bırakılıp istek doğrudan API'ye gönderilebilir. Asıl doğrulama sunucudaki kural
+katmanında, nihai garanti ise veritabanındaki kısıtlardadır. Aynı ayrım takvim
+kısıtı için de geçerlidir — tarih sınırı hem burada hem sunucuda uygulanır.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## Testler
 
-### Making a Progressive Web App
+```bash
+npm test
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+`utils/conflictValidator.test.js` — 9 senaryo: aynı saat çakışması (doktor farklı
+olsa bile), iptal edilen randevunun saatinin serbest kalması, tamamlanmış
+randevunun saati doldurması, farklı gün/saat durumları.
