@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Table, message, Layout, Modal, Input, Popconfirm, Space, Form, DatePicker, Tag, Empty } from 'antd';
-import { LogoutOutlined, TeamOutlined, FileTextOutlined, CloseCircleOutlined, ExperimentOutlined, CalendarOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { LogoutOutlined, TeamOutlined, FileTextOutlined, CloseCircleOutlined, ExperimentOutlined, CalendarOutlined, PlusOutlined, DeleteOutlined, CheckCircleOutlined, CheckOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { appointmentService } from '../api/appointmentService';
@@ -37,6 +37,13 @@ const STATUS_LABELS = {
   COMPLETED: 'Tamamlandı',
 };
 
+const STATUS_COLORS = {
+  PENDING: 'gold',
+  CONFIRMED: 'blue',
+  CANCELLED: 'red',
+  COMPLETED: 'green',
+};
+
 export default function DoctorDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -51,6 +58,9 @@ export default function DoctorDashboard() {
   const [leaveForm] = Form.useForm();
   const [savingLeave, setSavingLeave] = useState(false);
   const [removingLeaveId, setRemovingLeaveId] = useState(null);
+
+  // Durum akışı: Onay Bekliyor -> Onaylandı -> Tamamlandı
+  const [statusUpdatingId, setStatusUpdatingId] = useState(null);
 
   // Vaka Notu Modalı İçin State'ler
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -177,6 +187,24 @@ export default function DoctorDashboard() {
     }
   };
 
+  // Randevu durumunu ilerlet. Geçerli olmayan geçişleri backend reddeder
+  // (örn. saati gelmemiş randevu tamamlanamaz), mesajı olduğu gibi gösteririz.
+  const handleStatusChange = async (appointmentId, action) => {
+    setStatusUpdatingId(appointmentId);
+    try {
+      const updated = action === 'confirm'
+        ? await appointmentService.confirmAppointment(appointmentId)
+        : await appointmentService.completeAppointment(appointmentId);
+      setAppointments((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+      message.success(action === 'confirm' ? 'Randevu onaylandı.' : 'Muayene tamamlandı olarak işaretlendi.');
+    } catch (error) {
+      const backendMessage = error.response?.data;
+      message.error(typeof backendMessage === 'string' ? backendMessage : 'Randevu durumu güncellenemedi.');
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
   const handleCancelAppointment = async (appointmentId) => {
     setCancellingId(appointmentId);
     try {
@@ -207,7 +235,38 @@ export default function DoctorDashboard() {
     {
       title: 'Durum',
       key: 'status',
-      render: (_, record) => STATUS_LABELS[record.status] || record.status,
+      render: (_, record) => (
+        <Tag color={STATUS_COLORS[record.status]}>{STATUS_LABELS[record.status] || record.status}</Tag>
+      ),
+    },
+    {
+      title: 'Durum İşlemi',
+      key: 'statusAction',
+      render: (_, record) => {
+        const isFinished = record.status === 'CANCELLED' || record.status === 'COMPLETED';
+        if (isFinished) return <span style={{ color: '#aaa' }}>—</span>;
+        return (
+          <Space>
+            {record.status === 'PENDING' && (
+              <Button
+                icon={<CheckOutlined />}
+                loading={statusUpdatingId === record.id}
+                onClick={() => handleStatusChange(record.id, 'confirm')}
+              >
+                Onayla
+              </Button>
+            )}
+            <Button
+              type="primary"
+              icon={<CheckCircleOutlined />}
+              loading={statusUpdatingId === record.id}
+              onClick={() => handleStatusChange(record.id, 'complete')}
+            >
+              Muayene Bitti
+            </Button>
+          </Space>
+        );
+      },
     },
     {
       title: 'Klinik İşlem',
@@ -220,6 +279,7 @@ export default function DoctorDashboard() {
               type="primary"
               ghost
               icon={<FileTextOutlined />}
+              disabled={record.status === 'CANCELLED'}
               onClick={() => openClinicalNoteModal(record)}
             >
               Vaka Notu / Reçete Gir

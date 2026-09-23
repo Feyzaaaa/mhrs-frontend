@@ -41,6 +41,18 @@ export const appointmentService = {
     return response.data;
   },
 
+  // Doktor Portalı: randevuyu onaylar (Onay Bekliyor -> Onaylandı)
+  confirmAppointment: async (appointmentId) => {
+    const response = await axiosInstance.patch(`/appointments/${appointmentId}/confirm`);
+    return response.data;
+  },
+
+  // Doktor Portalı: muayeneyi tamamlandı olarak işaretler
+  completeAppointment: async (appointmentId) => {
+    const response = await axiosInstance.patch(`/appointments/${appointmentId}/complete`);
+    return response.data;
+  },
+
   // Doktor Portalı: bir randevuya vaka notu / reçete bilgisi kaydeder
   saveClinicalNote: async (appointmentId, note) => {
     const response = await axiosInstance.patch(`/appointments/${appointmentId}/note`, { note });
