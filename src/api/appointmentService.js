@@ -19,6 +19,22 @@ export const appointmentService = {
     return response.data;
   },
 
+  // Doktor Portalı: doktorun izin/görev günleri (kural R7 — o günlere randevu açılmaz)
+  getDoctorLeaves: async (doctorId) => {
+    const response = await axiosInstance.get(`/doctors/${doctorId}/leaves`);
+    return response.data;
+  },
+
+  addDoctorLeave: async (doctorId, leaveDate, reason) => {
+    const response = await axiosInstance.post(`/doctors/${doctorId}/leaves`, { leaveDate, reason });
+    return response.data;
+  },
+
+  removeDoctorLeave: async (doctorId, leaveId) => {
+    const response = await axiosInstance.delete(`/doctors/${doctorId}/leaves/${leaveId}`);
+    return response.data;
+  },
+
   // Doktor Portalı: bir doktora ait tüm randevuları çeker
   getDoctorAppointments: async (doctorId) => {
     const response = await axiosInstance.get(`/appointments/doctor/${doctorId}`);

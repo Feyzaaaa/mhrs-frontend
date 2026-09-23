@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, Button, Table, message, Layout, Modal, Input, Popconfirm, Space, Form, DatePicker } from 'antd';
-import { LogoutOutlined, TeamOutlined, FileTextOutlined, CloseCircleOutlined, ExperimentOutlined } from '@ant-design/icons';
+import { Card, Button, Table, message, Layout, Modal, Input, Popconfirm, Space, Form, DatePicker, Tag, Empty } from 'antd';
+import { LogoutOutlined, TeamOutlined, FileTextOutlined, CloseCircleOutlined, ExperimentOutlined, CalendarOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { appointmentService } from '../api/appointmentService';
@@ -45,6 +45,13 @@ export default function DoctorDashboard() {
   const [tableLoading, setTableLoading] = useState(false);
   const [cancellingId, setCancellingId] = useState(null);
 
+  // İzin / görev günleri (kural R7): bu günlerde hastalara müsait saat sunulmaz
+  const [doctorId, setDoctorId] = useState(null);
+  const [leaves, setLeaves] = useState([]);
+  const [leaveForm] = Form.useForm();
+  const [savingLeave, setSavingLeave] = useState(false);
+  const [removingLeaveId, setRemovingLeaveId] = useState(null);
+
   // Vaka Notu Modalı İçin State'ler
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
@@ -62,8 +69,10 @@ export default function DoctorDashboard() {
     try {
       // User.id ile Doctor.id farklı kayıtlar; önce giriş yapan kullanıcının doktor kaydını buluyoruz
       const doctor = await appointmentService.getDoctorByUserId(user.id);
+      setDoctorId(doctor.id);
       const data = await appointmentService.getDoctorAppointments(doctor.id);
       setAppointments(data);
+      setLeaves(await appointmentService.getDoctorLeaves(doctor.id));
     } catch (error) {
       message.error('Randevular yüklenirken bir hata oluştu.');
     } finally {
@@ -133,6 +142,38 @@ export default function DoctorDashboard() {
       message.error('Laboratuvar sonucu kaydedilirken bir hata oluştu.');
     } finally {
       setSavingLab(false);
+    }
+  };
+
+  // İzin günü ekle: backend o günde aktif randevu varsa reddeder
+  const handleAddLeave = async () => {
+    try {
+      const values = await leaveForm.validateFields();
+      setSavingLeave(true);
+      await appointmentService.addDoctorLeave(doctorId, values.leaveDate.format('YYYY-MM-DD'), values.reason);
+      leaveForm.resetFields();
+      setLeaves(await appointmentService.getDoctorLeaves(doctorId));
+      message.success('İzin günü eklendi. Bu tarihte hastalara randevu saati sunulmayacak.');
+    } catch (error) {
+      if (error?.errorFields) return; // form doğrulama hatası
+      const backendMessage = error.response?.data;
+      message.error(typeof backendMessage === 'string' ? backendMessage : 'İzin günü eklenirken bir hata oluştu.');
+    } finally {
+      setSavingLeave(false);
+    }
+  };
+
+  const handleRemoveLeave = async (leaveId) => {
+    setRemovingLeaveId(leaveId);
+    try {
+      await appointmentService.removeDoctorLeave(doctorId, leaveId);
+      setLeaves((prev) => prev.filter((leave) => leave.id !== leaveId));
+      message.success('İzin günü kaldırıldı.');
+    } catch (error) {
+      const backendMessage = error.response?.data;
+      message.error(typeof backendMessage === 'string' ? backendMessage : 'İzin günü kaldırılırken bir hata oluştu.');
+    } finally {
+      setRemovingLeaveId(null);
     }
   };
 
@@ -220,6 +261,56 @@ export default function DoctorDashboard() {
       <Content style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
         <Card title="Klinik Çalışma Takvimi" style={{ marginBottom: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
           <p><TeamOutlined /> Günlük randevu kapasitenizi yönetebilir, hastalarınıza e-reçete ve vaka notu ekleyebilirsiniz.</p>
+        </Card>
+
+        <Card
+          title={<span><CalendarOutlined /> İzin / Görev Günlerim</span>}
+          style={{ marginBottom: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
+        >
+          <p style={{ color: '#888', marginTop: 0 }}>
+            Buraya eklediğiniz günlerde hastalara müsait saat gösterilmez ve randevu oluşturulamaz.
+            O gün için verilmiş randevunuz varsa önce onu iptal etmeniz gerekir.
+          </p>
+          <Form form={leaveForm} layout="inline" style={{ marginBottom: '16px' }}>
+            <Form.Item name="leaveDate" rules={[{ required: true, message: 'Tarih seçiniz' }]}>
+              <DatePicker placeholder="İzin tarihi" disabledDate={(current) => current && current.valueOf() < Date.now() - 86400000} />
+            </Form.Item>
+            <Form.Item name="reason">
+              <Input placeholder="Açıklama (örn. Yıllık izin, Nöbet)" style={{ width: 240 }} />
+            </Form.Item>
+            <Form.Item>
+              <Button type="primary" icon={<PlusOutlined />} loading={savingLeave} onClick={handleAddLeave} disabled={!doctorId}>
+                Ekle
+              </Button>
+            </Form.Item>
+          </Form>
+
+          {leaves.length === 0 ? (
+            <Empty description="Yaklaşan izin günü yok" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+          ) : (
+            <Space wrap>
+              {leaves.map((leave) => (
+                <Tag key={leave.id} color="orange" style={{ padding: '6px 10px', fontSize: '14px' }}>
+                  {new Date(leave.leaveDate).toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  {leave.reason ? ` — ${leave.reason}` : ''}
+                  <Popconfirm
+                    title="Bu izin günü kaldırılsın mı?"
+                    okText="Evet"
+                    cancelText="Vazgeç"
+                    onConfirm={() => handleRemoveLeave(leave.id)}
+                  >
+                    <Button
+                      type="text"
+                      size="small"
+                      icon={<DeleteOutlined />}
+                      loading={removingLeaveId === leave.id}
+                      style={{ marginLeft: 6 }}
+                    />
+                  </Popconfirm>
+                </Tag>
+              ))}
+            </Space>
+          )}
         </Card>
 
         <Card title="Randevulu Hastalarım" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
