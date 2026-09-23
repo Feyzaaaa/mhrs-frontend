@@ -13,6 +13,24 @@ export const appointmentService = {
     return response.data;
   },
 
+  // Giriş yapan User (role=DOCTOR) için ilişkili Doctor kaydını (ve doctorId'yi) bulur
+  getDoctorByUserId: async (userId) => {
+    const response = await axiosInstance.get(`/doctors/by-user/${userId}`);
+    return response.data;
+  },
+
+  // Doktor Portalı: bir doktora ait tüm randevuları çeker
+  getDoctorAppointments: async (doctorId) => {
+    const response = await axiosInstance.get(`/appointments/doctor/${doctorId}`);
+    return response.data;
+  },
+
+  // Doktor Portalı: bir randevuya vaka notu / reçete bilgisi kaydeder
+  saveClinicalNote: async (appointmentId, note) => {
+    const response = await axiosInstance.patch(`/appointments/${appointmentId}/note`, { note });
+    return response.data;
+  },
+
   // Seçilen doktor ve tarihe göre Backend'den 15 dk'lık boş saatleri çeker
   getAvailableSlots: async (doctorId, date) => {
     const response = await axiosInstance.get(`/appointments/available-slots?doctorId=${doctorId}&date=${date}`);
@@ -26,6 +44,12 @@ export const appointmentService = {
 
   getPatientAppointments: async (patientId) => {
     const response = await axiosInstance.get(`/appointments/patient/${patientId}`);
+    return response.data;
+  },
+
+  // Hasta veya Doktor Portalı: bir randevuyu iptal eder
+  cancelAppointment: async (appointmentId) => {
+    const response = await axiosInstance.patch(`/appointments/${appointmentId}/cancel`);
     return response.data;
   },
 };

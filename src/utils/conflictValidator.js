@@ -1,17 +1,21 @@
 /**
  * Senaryo Tabanlı Çakışma Yönetimi (Conflict Management)
- * Aynı doktor için aynı tarih ve saat diliminde çakışan bir randevu olup olmadığını denetler.
+ * Hastanın mevcut randevuları arasında, tam olarak aynı tarih/saate denk gelen
+ * (doktor farklı olsa bile) bir randevu olup olmadığını denetler. İptal edilen
+ * randevular çakışma sayılmaz.
  */
-export const checkAppointmentConflict = (existingAppointments, newAppointment) => {
-    // existingAppointments: Hastanın veya doktorun mevcut randevu listesi
-    // newAppointment: { doctorId, date, time } formatındaki yeni randevu talebi
-  
+export const checkAppointmentConflict = (existingAppointments, newAppointmentDateTime) => {
+    // existingAppointments: Hastanın backend'den gelen mevcut randevu listesi (appointmentDate, status alanlarıyla)
+    // newAppointmentDateTime: Yeni randevu talebinin ISO tarih/saat string'i (örn. "2026-10-01T10:00:00")
+
+    const newTime = new Date(newAppointmentDateTime).getTime();
+
     const isConflict = existingAppointments.some(
-      (appointment) => 
-        appointment.doctor === newAppointment.doctor &&
-        appointment.date === newAppointment.date
+      (appointment) =>
+        appointment.status !== 'CANCELLED' &&
+        new Date(appointment.appointmentDate).getTime() === newTime
     );
-  
+
     return isConflict; // Eğer true dönerse çakışma var demektir!
   };
   
