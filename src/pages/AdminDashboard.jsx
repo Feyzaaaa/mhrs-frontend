@@ -4,10 +4,11 @@ import {
   Statistic, Form, Input, Popconfirm, Space, Modal,
 } from 'antd';
 import {
-  LogoutOutlined, SafetyCertificateOutlined, TeamOutlined,
+  LogoutOutlined, LockOutlined, SafetyCertificateOutlined, TeamOutlined,
   ApartmentOutlined, CalendarOutlined, CloseCircleOutlined, PlusOutlined, FileSearchOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
+import ChangePasswordModal from '../components/ChangePasswordModal';
 import { useNavigate } from 'react-router-dom';
 import { adminService } from '../api/adminService';
 import { appointmentService } from '../api/appointmentService';
@@ -90,6 +91,7 @@ const backendError = (error, fallback) => {
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [sifreModaliAcik, setSifreModaliAcik] = useState(false);
 
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
@@ -496,11 +498,14 @@ export default function AdminDashboard() {
         <h2>🛡️ MHRS - Yönetici Portalı</h2>
         <Space>
           <span style={{ color: '#888' }}>{user?.firstName} {user?.lastName}</span>
+          <Button icon={<LockOutlined />} onClick={() => setSifreModaliAcik(true)}>Şifre Değiştir</Button>
           <Button type="primary" danger icon={<LogoutOutlined />} onClick={handleLogout}>
             Çıkış Yap
           </Button>
         </Space>
       </Header>
+
+      <ChangePasswordModal open={sifreModaliAcik} onClose={() => setSifreModaliAcik(false)} />
 
       <Content style={{ padding: '24px', maxWidth: '1100px', margin: '0 auto', width: '100%' }}>
         {/* Sekme URL'den seçilebilir (?tab=audit gibi): belirli bir sekmeye doğrudan bağlantı verilebilir */}

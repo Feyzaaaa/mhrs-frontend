@@ -16,4 +16,11 @@ export const authService = {
     const response = await axiosInstance.post('/users/register', userData);
     return response.data;
   },
+
+  // Kullanıcının kendi şifresini değiştirmesi.
+  // Başarılı olduğunda sunucu, o ana kadar üretilmiş tüm token'ları geçersiz sayar.
+  changePassword: async (currentPassword, newPassword) => {
+    const response = await axiosInstance.patch('/users/me/password', { currentPassword, newPassword });
+    return response.data;
+  },
 };

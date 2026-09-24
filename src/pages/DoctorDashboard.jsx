@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Table, message, Layout, Modal, Input, Popconfirm, Space, Form, DatePicker, Tag, Empty } from 'antd';
-import { LogoutOutlined, TeamOutlined, FileTextOutlined, CloseCircleOutlined, ExperimentOutlined, CalendarOutlined, PlusOutlined, DeleteOutlined, CheckCircleOutlined, CheckOutlined } from '@ant-design/icons';
+import { LogoutOutlined, LockOutlined, TeamOutlined, FileTextOutlined, CloseCircleOutlined, ExperimentOutlined, CalendarOutlined, PlusOutlined, DeleteOutlined, CheckCircleOutlined, CheckOutlined } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
+import ChangePasswordModal from '../components/ChangePasswordModal';
 import { useNavigate } from 'react-router-dom';
 import { appointmentService } from '../api/appointmentService';
 import { patientService } from '../api/patientService';
@@ -47,6 +48,7 @@ const STATUS_COLORS = {
 export default function DoctorDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [sifreModaliAcik, setSifreModaliAcik] = useState(false);
 
   const [appointments, setAppointments] = useState([]);
   const [tableLoading, setTableLoading] = useState(false);
@@ -313,10 +315,15 @@ export default function DoctorDashboard() {
     <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
       <Header style={{ background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 24px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
         <h2>🩺 MHRS - Doktor Portalı (Klinik Yönetimi)</h2>
-        <Button type="primary" danger icon={<LogoutOutlined />} onClick={handleLogout}>
-          Çıkış Yap
-        </Button>
+        <Space>
+          <Button icon={<LockOutlined />} onClick={() => setSifreModaliAcik(true)}>Şifre Değiştir</Button>
+          <Button type="primary" danger icon={<LogoutOutlined />} onClick={handleLogout}>
+            Çıkış Yap
+          </Button>
+        </Space>
       </Header>
+
+      <ChangePasswordModal open={sifreModaliAcik} onClose={() => setSifreModaliAcik(false)} />
 
       <Content style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
         <Card title="Klinik Çalışma Takvimi" style={{ marginBottom: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>

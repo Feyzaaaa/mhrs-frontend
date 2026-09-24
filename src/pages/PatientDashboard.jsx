@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Card, Button, Table, message, Layout, Modal, Select, Row, Col, DatePicker, Popconfirm, Form, Input, InputNumber, Descriptions, Tag } from 'antd';
+import { Card, Button, Table, message, Layout, Modal, Select, Row, Col, DatePicker, Popconfirm, Form, Input, InputNumber, Descriptions, Tag, Space } from 'antd';
 import {
-  LogoutOutlined,
+  LogoutOutlined, LockOutlined,
   PlusOutlined,
   CloseCircleOutlined,
   CalendarOutlined,
@@ -10,6 +10,7 @@ import {
   PhoneOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
+import ChangePasswordModal from '../components/ChangePasswordModal';
 import { useNavigate } from 'react-router-dom';
 import { appointmentService } from '../api/appointmentService';
 import { patientService } from '../api/patientService';
@@ -85,6 +86,7 @@ const STATUS_LABELS = {
 export default function PatientDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [sifreModaliAcik, setSifreModaliAcik] = useState(false);
 
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -367,8 +369,13 @@ export default function PatientDashboard() {
     <Layout style={{ minHeight: '100vh', background: '#f0f2f5' }}>
       <Header style={{ background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 16px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
         <h3 style={{ margin: 0, fontSize: '16px' }}>🏥 MHRS Hasta Portalı</h3>
-        <Button type="primary" danger icon={<LogoutOutlined />} onClick={handleLogout}>Çıkış</Button>
+        <Space>
+          <Button icon={<LockOutlined />} onClick={() => setSifreModaliAcik(true)}>Şifre Değiştir</Button>
+          <Button type="primary" danger icon={<LogoutOutlined />} onClick={handleLogout}>Çıkış</Button>
+        </Space>
       </Header>
+
+      <ChangePasswordModal open={sifreModaliAcik} onClose={() => setSifreModaliAcik(false)} />
 
       <Layout style={{ background: '#f0f2f5' }}>
         {/* SOL SABİT PANEL: Kan grubu, alerjiler, VKİ, iletişim bilgileri */}
