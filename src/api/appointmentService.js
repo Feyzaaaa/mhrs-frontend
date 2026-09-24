@@ -65,6 +65,14 @@ export const appointmentService = {
     return response.data;
   },
 
+  // Optimizasyon motoru: hasta için en uygun randevu adaylarını döndürür
+  getRecommendations: async (patientId, departmentId) => {
+    const params = new URLSearchParams({ patientId });
+    if (departmentId) params.append('departmentId', departmentId);
+    const response = await axiosInstance.get(`/appointments/recommendations?${params}`);
+    return response.data;
+  },
+
   bookAppointment: async (appointmentData) => {
     const response = await axiosInstance.post('/appointments', appointmentData);
     return response.data;

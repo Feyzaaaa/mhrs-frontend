@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, Button, Table, message, Layout, Modal, Select, Row, Col, DatePicker, Popconfirm, Form, Input, InputNumber, Descriptions, Tag, Space } from 'antd';
 import {
-  LogoutOutlined, LockOutlined,
+  LogoutOutlined, LockOutlined, BulbOutlined,
   PlusOutlined,
   CloseCircleOutlined,
   CalendarOutlined,
@@ -109,6 +109,12 @@ export default function PatientDashboard() {
 
   // Kullanıcının Seçimleri
   const [selectedDepartment, setSelectedDepartment] = useState(null);
+
+  // Optimizasyon motoru önerileri
+  const [oneriler, setOneriler] = useState([]);
+  const [onerilerYukleniyor, setOnerilerYukleniyor] = useState(false);
+  const [oneriBilgisi, setOneriBilgisi] = useState(null);
+  const [secilenOneri, setSecilenOneri] = useState(null);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
@@ -217,15 +223,72 @@ export default function PatientDashboard() {
     setSelectedDate(null);
     setSelectedTime(null);
     setAvailableSlots([]);
+    setSecilenOneri(null);
+    setOneriler([]);
+  };
+
+  // Poliklinik seçilince optimizasyon motorundan öneri iste
+  const onerileriGetir = useCallback(async (departmentId) => {
+    if (!user?.id) return;
+    setOnerilerYukleniyor(true);
+    try {
+      const sonuc = await appointmentService.getRecommendations(user.id, departmentId);
+      setOneriler(sonuc.oneriler || []);
+      setOneriBilgisi(sonuc);
+    } catch (error) {
+      setOneriler([]);
+      setOneriBilgisi(null);
+    } finally {
+      setOnerilerYukleniyor(false);
+    }
+  }, [user]);
+
+  // Derin bağlantı: /patient-dashboard?randevu=1&poliklinik=3 ile randevu ekranı
+  // doğrudan açılabilir. Poliklinik verilmişse öneriler de hemen hesaplanır.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('randevu') !== '1') return;
+
+    setIsModalVisible(true);
+    const poliklinik = params.get('poliklinik');
+    if (poliklinik) {
+      const id = Number(poliklinik);
+      setSelectedDepartment(id);
+      onerileriGetir(id);
+    }
+  }, [onerileriGetir]);
+
+  // Önerilen randevu ayrı bir seçim olarak tutulur; elle seçim alanlarını temizler.
+  // Böylece takvim bileşeninin tarih nesnesine dönüştürme ihtiyacı doğmaz.
+  const oneriyiSec = (oneri) => {
+    setSecilenOneri(oneri);
+    setSelectedDoctor(null);
+    setSelectedDate(null);
+    setSelectedTime(null);
+    setAvailableSlots([]);
+  };
+
+  // Backend'den gelen tarih hem "2026-09-25T16:45:00" hem [2026,9,25,16,45] olabilir
+  const oneriIsoTarihi = (oneri) => {
+    const t = oneri.tarih;
+    if (typeof t === 'string') return t.length === 16 ? t + ':00' : t;
+    const [y, ay, g, sa = 0, dk = 0] = t;
+    const iki = (n) => String(n).padStart(2, '0');
+    return `${y}-${iki(ay)}-${iki(g)}T${iki(sa)}:${iki(dk)}:00`;
   };
 
   const handleBookAppointment = async () => {
-    if (!selectedDoctor || !selectedDate || !selectedTime) {
-      message.error('Lütfen doktor, tarih ve saat seçiniz!');
+    // İki yol var: optimizasyon motorunun önerisi veya elle seçim
+    const doktorId = secilenOneri ? secilenOneri.doctorId : selectedDoctor;
+
+    if (!secilenOneri && (!selectedDoctor || !selectedDate || !selectedTime)) {
+      message.error('Lütfen bir öneri seçin veya doktor, tarih ve saat belirleyin!');
       return;
     }
-    
-    const appointmentDateTime = `${selectedDate.format('YYYY-MM-DD')}T${selectedTime.split(' - ')[0]}:00`;
+
+    const appointmentDateTime = secilenOneri
+      ? oneriIsoTarihi(secilenOneri)
+      : `${selectedDate.format('YYYY-MM-DD')}T${selectedTime.split(' - ')[0]}:00`;
 
     // SENARYO TABANLI ÇAKIŞMA YÖNETİMİ: Hasta bu saat diliminde (farklı bir doktordan bile olsa)
     // zaten bir randevuya sahipse, isteği backend'e göndermeden burada durduruyoruz.
@@ -243,7 +306,7 @@ export default function PatientDashboard() {
       // Backend'e kaydedilecek gerçek format (Test amaçlı console'da görebilirsin)
       const appointmentData = {
         patient: { id: user.id }, // AuthContext'ten gelen gerçek ID
-        doctor: { id: selectedDoctor },
+        doctor: { id: doktorId },
         appointmentDate: appointmentDateTime,
         complaint: 'Genel kontrol'
       };
@@ -573,6 +636,7 @@ export default function PatientDashboard() {
               onChange={(val) => {
                 setSelectedDepartment(val);
                 setSelectedDoctor(null); // Poliklinik değişirse doktoru sıfırla
+                onerileriGetir(val);     // Optimizasyon motorundan öneri iste
               }}
               value={selectedDepartment}
             >
@@ -581,6 +645,57 @@ export default function PatientDashboard() {
               ))}
             </Select>
           </div>
+
+          {/* OPTİMİZASYON MOTORU ÖNERİLERİ */}
+          {selectedDepartment && (
+            <Card
+              size="small"
+              title={<span><BulbOutlined /> Sizin İçin Önerilenler</span>}
+              loading={onerilerYukleniyor}
+              extra={oneriBilgisi && (
+                <span style={{ fontSize: 12, color: '#888' }}>
+                  {oneriBilgisi.degerlendirilenAday} aday değerlendirildi
+                </span>
+              )}
+            >
+              {oneriler.length === 0 ? (
+                <span style={{ color: '#888' }}>
+                  {onerilerYukleniyor ? 'Hesaplanıyor…' : 'Uygun öneri bulunamadı.'}
+                </span>
+              ) : (
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  {oneriler.map((o, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        border: secilenOneri === o ? '2px solid #1677ff' : '1px solid #e8e8e8',
+                        background: secilenOneri === o ? '#f0f7ff' : '#fff',
+                        borderRadius: 6, padding: '10px 12px',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12,
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 600 }}>
+                          {formatAppointmentTime(o.tarih)} · {o.doctorAdi}
+                        </div>
+                        <div style={{ fontSize: 12, color: '#888' }}>{o.aciklama}</div>
+                      </div>
+                      {/* ghost yalnızca primary ile kullanılır: default + ghost
+                          beyaz zeminde görünmez bir düğme üretiyordu */}
+                      <Button
+                        type="primary"
+                        ghost={secilenOneri !== o}
+                        size="small"
+                        onClick={() => oneriyiSec(o)}
+                      >
+                        {secilenOneri === o ? 'Seçildi' : 'Seç'}
+                      </Button>
+                    </div>
+                  ))}
+                </Space>
+              )}
+            </Card>
+          )}
 
           {/* DİNAMİK DOKTOR SEÇİMİ */}
           <div>
