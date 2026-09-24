@@ -51,6 +51,13 @@ geçerli ama bu kaynağa yetkin yok" demektir; kullanıcıyı sistemden atmak ya
 olur. Giriş denemeleri bu kuralın dışındadır — hatalı şifre de 401 döner, ama
 onu giriş ekranının kendisi bildirir.
 
+### Kayıt ve giriş güvenliği
+
+Kayıt ekranı şifre gereksinimini gösterir (en az 8 karakter, harf + rakam) ancak
+kural **sunucuda** uygulanır; arayüzdeki metin yalnızca bilgilendirmedir. Ardışık
+hatalı girişlerde sunucu kalan deneme hakkını bildirir, eşik aşılınca hesabı
+geçici olarak kilitler.
+
 ---
 
 ## Portallar
@@ -66,7 +73,8 @@ izin/görev günü yönetimi.
 
 **Yönetici** (`pages/AdminDashboard.jsx`) — rol ve randevu dağılımı özeti,
 kullanıcı rollerini değiştirme, poliklinik ve doktor tanımlama, sistemdeki tüm
-randevuların denetimi.
+randevuların denetimi ve **denetim kayıtları** (kim, ne zaman, neyi, hangi
+adresten — işlem türüne göre süzülebilir).
 
 ---
 

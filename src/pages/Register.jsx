@@ -42,11 +42,13 @@ const Register = () => {
 
       if (error.response) {
 
+        // Backend iş kuralı hatalarını düz metin döndürür (örn. şifre politikası);
+        // nesne dönen durumlarda mesaj alanına düşeriz.
+        const data = error.response.data;
         setMessage(
-          `Hata: ${
-            error.response.data?.message ||
-            JSON.stringify(error.response.data)
-          }`
+          typeof data === 'string' && data.trim()
+            ? data
+            : `Hata: ${data?.message || 'Kayıt tamamlanamadı.'}`
         );
 
       } else if (error.request) {
@@ -138,11 +140,17 @@ const Register = () => {
             value={formData.password}
             onChange={handleChange}
             required
+            minLength={8}
             style={{
               width: '100%',
               padding: '8px'
             }}
           />
+
+          {/* Kural sunucuda uygulanır; buradaki metin yalnızca kullanıcıyı bilgilendirir */}
+          <small style={{ color: '#666' }}>
+            En az 8 karakter, en az bir harf ve bir rakam içermeli.
+          </small>
 
         </div>
 

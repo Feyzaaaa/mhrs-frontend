@@ -28,6 +28,14 @@ export const adminService = {
     return response.data;
   },
 
+  // Denetim kayıtları: kim, ne zaman, neyi yaptı (yalnızca okunur)
+  getAuditLogs: async (page = 0, size = 50, action) => {
+    const params = new URLSearchParams({ page, size });
+    if (action) params.append('action', action);
+    const response = await axiosInstance.get(`/admin/audit-logs?${params}`);
+    return response.data;
+  },
+
   // Yeni poliklinik tanımlar
   createDepartment: async (name) => {
     const response = await axiosInstance.post('/admin/departments', { name });

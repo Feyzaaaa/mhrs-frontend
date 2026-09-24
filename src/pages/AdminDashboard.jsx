@@ -5,7 +5,7 @@ import {
 } from 'antd';
 import {
   LogoutOutlined, SafetyCertificateOutlined, TeamOutlined,
-  ApartmentOutlined, CalendarOutlined, CloseCircleOutlined, PlusOutlined,
+  ApartmentOutlined, CalendarOutlined, CloseCircleOutlined, PlusOutlined, FileSearchOutlined,
 } from '@ant-design/icons';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -46,6 +46,39 @@ const STATUS_COLORS = {
 };
 
 const ROLE_LABELS = { PATIENT: 'Hasta', DOCTOR: 'Doktor', ADMIN: 'Yönetici' };
+
+// Denetim kaydındaki işlem türleri: güvenlik olayları kırmızı/turuncu, yönetim işlemleri mor
+const AUDIT_COLORS = {
+  LOGIN_SUCCESS: 'green',
+  LOGIN_FAILED: 'orange',
+  ACCOUNT_LOCKED: 'red',
+  REGISTER: 'blue',
+  ROLE_CHANGED: 'purple',
+  DOCTOR_CREATED: 'purple',
+  DEPARTMENT_CREATED: 'purple',
+  APPOINTMENT_CANCELLED: 'volcano',
+  APPOINTMENT_STATUS_CHANGED: 'cyan',
+};
+
+const AUDIT_FILTERS = [
+  { value: '', label: 'Tüm işlemler' },
+  { value: 'ROLE_CHANGED', label: 'Rol değişiklikleri' },
+  { value: 'LOGIN_FAILED', label: 'Başarısız girişler' },
+  { value: 'ACCOUNT_LOCKED', label: 'Hesap kilitlenmeleri' },
+  { value: 'LOGIN_SUCCESS', label: 'Başarılı girişler' },
+  { value: 'APPOINTMENT_CANCELLED', label: 'Randevu iptalleri' },
+];
+
+const formatLogTime = (value) => {
+  const date = Array.isArray(value)
+    ? new Date(value[0], value[1] - 1, value[2], value[3] || 0, value[4] || 0, value[5] || 0)
+    : new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleString('tr-TR', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+  });
+};
 const ROLE_COLORS = { PATIENT: 'blue', DOCTOR: 'green', ADMIN: 'purple' };
 
 // Backend hata gövdesi düz metin olarak gelir; okunabilir mesajı ayıklayan yardımcı
@@ -67,6 +100,10 @@ export default function AdminDashboard() {
   const [loadingAppointments, setLoadingAppointments] = useState(false);
   const [updatingRoleId, setUpdatingRoleId] = useState(null);
   const [cancellingId, setCancellingId] = useState(null);
+
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditFilter, setAuditFilter] = useState('');
 
   const [isDoctorModalVisible, setIsDoctorModalVisible] = useState(false);
   const [savingDoctor, setSavingDoctor] = useState(false);
@@ -111,6 +148,23 @@ export default function AdminDashboard() {
       message.error(backendError(error, 'Poliklinikler yüklenemedi.'));
     }
   }, []);
+
+  // Denetim kayıtları sayfalı döner; ilk sayfayı gösteriyoruz
+  const fetchAuditLogs = useCallback(async (action) => {
+    setAuditLoading(true);
+    try {
+      const data = await adminService.getAuditLogs(0, 100, action || undefined);
+      setAuditLogs(data.content || []);
+    } catch (error) {
+      message.error(backendError(error, 'Denetim kayıtları yüklenemedi.'));
+    } finally {
+      setAuditLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAuditLogs(auditFilter);
+  }, [fetchAuditLogs, auditFilter]);
 
   useEffect(() => {
     fetchStats();
@@ -373,6 +427,63 @@ export default function AdminDashboard() {
             loading={loadingAppointments}
             pagination={{ pageSize: 10 }}
             scroll={{ x: 900 }}
+          />
+        </Card>
+      ),
+    },
+    {
+      key: 'audit',
+      label: <span><FileSearchOutlined /> Denetim Kayıtları</span>,
+      children: (
+        <Card
+          title="İşlem İzleri"
+          extra={
+            <Select
+              value={auditFilter}
+              style={{ width: 220 }}
+              onChange={setAuditFilter}
+              options={AUDIT_FILTERS}
+            />
+          }
+        >
+          <p style={{ color: '#888' }}>
+            Yetkilendirmeyi ilgilendiren işlemler burada iz bırakır: kim, ne zaman, neyi, hangi adresten.
+            Kayıtlar yalnızca okunur — silme veya değiştirme işlemi tanımlı değildir.
+          </p>
+          <Table
+            dataSource={auditLogs}
+            rowKey="id"
+            loading={auditLoading}
+            pagination={{ pageSize: 15 }}
+            scroll={{ x: 900 }}
+            columns={[
+              { title: 'Zaman', key: 'time', width: 170, render: (_, r) => formatLogTime(r.timestamp) },
+              {
+                title: 'İşlem',
+                key: 'action',
+                render: (_, r) => <Tag color={AUDIT_COLORS[r.action]}>{r.actionLabel || r.action}</Tag>,
+              },
+              {
+                title: 'Yapan',
+                key: 'actor',
+                render: (_, r) => (
+                  <span>
+                    {r.actorEmail || '-'}
+                    {r.actorRole && <Tag style={{ marginLeft: 6 }}>{ROLE_LABELS[r.actorRole] || r.actorRole}</Tag>}
+                  </span>
+                ),
+              },
+              { title: 'Ayrıntı', dataIndex: 'details', key: 'details' },
+              { title: 'IP', dataIndex: 'ipAddress', key: 'ip', width: 130 },
+              {
+                title: 'Sonuç',
+                key: 'success',
+                width: 100,
+                render: (_, r) => (
+                  <Tag color={r.success ? 'green' : 'red'}>{r.success ? 'Başarılı' : 'Başarısız'}</Tag>
+                ),
+              },
+            ]}
           />
         </Card>
       ),
