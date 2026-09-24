@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, Button, Table, message, Layout, Modal, Select, Row, Col, DatePicker, Popconfirm, Form, Input, InputNumber, Descriptions, Tag, Space } from 'antd';
 import {
-  LogoutOutlined, LockOutlined, BulbOutlined,
+  LogoutOutlined, LockOutlined, BulbOutlined, SwapOutlined,
   PlusOutlined,
   CloseCircleOutlined,
   CalendarOutlined,
@@ -115,6 +115,10 @@ export default function PatientDashboard() {
   const [onerilerYukleniyor, setOnerilerYukleniyor] = useState(false);
   const [oneriBilgisi, setOneriBilgisi] = useState(null);
   const [secilenOneri, setSecilenOneri] = useState(null);
+
+  // Program bozulması sonucu gelen yeniden planlama önerileri
+  const [planOnerileri, setPlanOnerileri] = useState([]);
+  const [planYanitlanan, setPlanYanitlanan] = useState(null);
   const [selectedDoctor, setSelectedDoctor] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
@@ -132,6 +136,16 @@ export default function PatientDashboard() {
       message.error('Randevularınız yüklenirken bir hata oluştu.');
     } finally {
       setAppointmentsLoading(false);
+    }
+  }, [user]);
+
+  // Doktorun programı bozulduğunda hastaya rezerve edilmiş slot önerileri
+  const fetchPlanOnerileri = useCallback(async () => {
+    try {
+      const data = await appointmentService.getProposals(user.id);
+      setPlanOnerileri((data || []).filter((o) => o.status === 'PENDING'));
+    } catch (error) {
+      setPlanOnerileri([]);
     }
   }, [user]);
 
@@ -187,10 +201,11 @@ export default function PatientDashboard() {
     fetchData();
     if (user?.id) {
       fetchAppointments();
+      fetchPlanOnerileri();
       fetchProfile();
       fetchLabResults();
     }
-  }, [user, fetchAppointments, fetchProfile, fetchLabResults]);
+  }, [user, fetchAppointments, fetchPlanOnerileri, fetchProfile, fetchLabResults]);
 
   // 2. Doktor ve Tarih Seçildiğinde 15'er Dakikalık Saatleri Getir
   useEffect(() => {
@@ -207,6 +222,27 @@ export default function PatientDashboard() {
       fetchSlots();
     }
   }, [selectedDoctor, selectedDate]);
+
+  // Öneriyi kabul: rezerve slotta yeni randevu oluşur. Ret: rezervasyon serbest kalır.
+  const planOnerisiYanitla = async (oneri, kabul) => {
+    setPlanYanitlanan(oneri.id);
+    try {
+      if (kabul) {
+        await appointmentService.acceptProposal(oneri.id);
+        message.success('Yeni randevunuz oluşturuldu.');
+      } else {
+        await appointmentService.rejectProposal(oneri.id);
+        message.info('Öneri reddedildi. Dilediğiniz zaman yeni randevu alabilirsiniz.');
+      }
+      fetchPlanOnerileri();
+      fetchAppointments();
+    } catch (error) {
+      const backendMessage = error.response?.data;
+      message.error(typeof backendMessage === 'string' ? backendMessage : 'İşlem tamamlanamadı.');
+    } finally {
+      setPlanYanitlanan(null);
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -478,6 +514,56 @@ export default function PatientDashboard() {
         </Sider>
 
       <Content style={{ padding: '16px', maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
+          {/* PROGRAM BOZULMASI: doktorun programı değiştiğinde randevu sessizce
+              taşınmaz; hastaya bir slot rezerve edilir ve onayı istenir. */}
+          {planOnerileri.length > 0 && (
+            <Card
+              style={{ marginBottom: 16, borderLeft: '4px solid #fa8c16' }}
+              title={<span><SwapOutlined /> Randevunuz Yeniden Planlandı</span>}
+            >
+              {planOnerileri.map((o) => (
+                <div
+                  key={o.id}
+                  style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    gap: 16, padding: '10px 0', borderBottom: '1px solid #f0f0f0', flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <div>
+                      <Tag color="red">{formatAppointmentTime(o.originalDate)}</Tag>
+                      randevunuz iptal edildi
+                      <span style={{ color: '#888' }}> · {o.reason}</span>
+                    </div>
+                    <div style={{ marginTop: 6 }}>
+                      Sizin için ayrıldı: <Tag color="green">{formatAppointmentTime(o.proposedDate)}</Tag>
+                      {o.doctor?.user && (
+                        <span style={{ color: '#888' }}>
+                          {o.doctor.title} {o.doctor.user.firstName} {o.doctor.user.lastName}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <Space>
+                    <Button
+                      type="primary"
+                      loading={planYanitlanan === o.id}
+                      onClick={() => planOnerisiYanitla(o, true)}
+                    >
+                      Kabul Et
+                    </Button>
+                    <Button
+                      danger
+                      loading={planYanitlanan === o.id}
+                      onClick={() => planOnerisiYanitla(o, false)}
+                    >
+                      Reddet
+                    </Button>
+                  </Space>
+                </div>
+              ))}
+            </Card>
+          )}
         {/* YAKLAŞAN RANDEVU VURGUSU: ana sayfanın ortasında, en dikkat çekici alan */}
         <Card
           style={{

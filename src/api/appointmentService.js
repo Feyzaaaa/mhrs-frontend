@@ -73,6 +73,38 @@ export const appointmentService = {
     return response.data;
   },
 
+  // --- PROGRAM BOZULMASI (Schedule Disruption) ---
+
+  // Doktor: bozulmanın sonucunu hesaplar ama uygulamaz
+  previewDisruption: async (doctorId, date, reason, budget) => {
+    const response = await axiosInstance.post(`/doctors/${doctorId}/disruptions/preview`,
+      { date, reason, budget });
+    return response.data;
+  },
+
+  // Doktor: planı uygular ve o gün için izin kaydı oluşturur
+  applyDisruption: async (doctorId, date, reason, budget) => {
+    const response = await axiosInstance.post(`/doctors/${doctorId}/disruptions/apply`,
+      { date, reason, budget });
+    return response.data;
+  },
+
+  // Hasta: kendisine yapılan yeniden planlama önerileri
+  getProposals: async (patientId) => {
+    const response = await axiosInstance.get(`/appointments/proposals?patientId=${patientId}`);
+    return response.data;
+  },
+
+  acceptProposal: async (proposalId) => {
+    const response = await axiosInstance.patch(`/appointments/proposals/${proposalId}/accept`);
+    return response.data;
+  },
+
+  rejectProposal: async (proposalId) => {
+    const response = await axiosInstance.patch(`/appointments/proposals/${proposalId}/reject`);
+    return response.data;
+  },
+
   bookAppointment: async (appointmentData) => {
     const response = await axiosInstance.post('/appointments', appointmentData);
     return response.data;
