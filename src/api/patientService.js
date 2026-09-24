@@ -19,9 +19,13 @@ export const patientService = {
     return response.data;
   },
 
-  // Doktor Portalı: hastaya yeni bir laboratuvar sonucu ekler
-  addLabResult: async (labResultData) => {
-    const response = await axiosInstance.post('/lab-results', labResultData);
+  // Doktor Portalı: hastaya yeni bir laboratuvar sonucu ekler.
+  // Bağlam farkındalı politika gereği doktor yalnızca kendi hastasına ve mesai
+  // içinde ekleyebilir; acilGerekce verilirse politika aşılır ve denetim kaydına
+  // "ACİL ERİŞİM" olarak yazılır.
+  addLabResult: async (labResultData, acilGerekce) => {
+    const config = acilGerekce ? { headers: { 'X-Acil-Erisim': acilGerekce } } : {};
+    const response = await axiosInstance.post('/lab-results', labResultData, config);
     return response.data;
   },
 };

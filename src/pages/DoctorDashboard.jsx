@@ -146,7 +146,7 @@ export default function DoctorDashboard() {
         result: values.result,
         referenceRange: values.referenceRange,
         testDate: values.testDate.format('YYYY-MM-DD'),
-      });
+      }, values.acilGerekce);
       setIsLabModalVisible(false);
       message.success('Laboratuvar sonucu hastanın profiline eklendi!');
     } catch (error) {
@@ -443,6 +443,17 @@ export default function DoctorDashboard() {
           </Form.Item>
           <Form.Item name="testDate" label="Tarih" rules={[{ required: true, message: 'Tarih gerekli' }]}>
             <DatePicker style={{ width: '100%' }} />
+          </Form.Item>
+
+          {/* Bağlam farkındalı erişim politikası: normalde yalnızca kendi hastanıza
+              ve mesai içinde ekleyebilirsiniz. Acil durumda gerekçe bildirilerek
+              politika aşılabilir; aşım denetim kaydına ayrıca yazılır. */}
+          <Form.Item
+            name="acilGerekce"
+            label="Acil Erişim Gerekçesi (yalnızca gerekiyorsa)"
+            extra="Mesai dışındaysanız veya hasta size atanmamışsa gerekçe zorunludur. Girilen gerekçe denetim kaydına yazılır."
+          >
+            <Input placeholder="Örn. Hasta acil serviste, sonuç ivedi gerekli" />
           </Form.Item>
         </Form>
       </Modal>
