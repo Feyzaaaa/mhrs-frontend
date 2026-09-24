@@ -503,7 +503,11 @@ export default function AdminDashboard() {
       </Header>
 
       <Content style={{ padding: '24px', maxWidth: '1100px', margin: '0 auto', width: '100%' }}>
-        <Tabs defaultActiveKey="summary" items={tabItems} />
+        {/* Sekme URL'den seçilebilir (?tab=audit gibi): belirli bir sekmeye doğrudan bağlantı verilebilir */}
+        <Tabs
+          defaultActiveKey={new URLSearchParams(window.location.search).get('tab') || 'summary'}
+          items={tabItems}
+        />
       </Content>
 
       {/* Doktor Tanımlama Modalı: mevcut bir kullanıcıyı poliklinik + unvan ile doktor yapar */}

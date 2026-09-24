@@ -1,195 +1,158 @@
 import React, { useState } from 'react';
+import { Form, Input, Button, Card, Typography, Alert, Divider } from 'antd';
+import {
+  UserOutlined, LockOutlined, MailOutlined, IdcardOutlined,
+  UserAddOutlined, UserSwitchOutlined, CheckCircleOutlined,
+} from '@ant-design/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { authService } from '../api/authService';
-const Register = () => {
 
+// Backend'deki PasswordPolicy ile aynı asgari koşullar.
+// Buradaki kontrol yalnızca kullanıcıyı erken uyarmak içindir; kural sunucuda uygulanır
+// ve istek doğrudan API'ye gönderildiğinde tek geçerli denetim odur.
+const MIN_SIFRE_UZUNLUGU = 8;
+
+const sifreKuraliniDogrula = (_, deger) => {
+  if (!deger) return Promise.reject(new Error('Lütfen bir şifre belirleyin'));
+  if (deger.length < MIN_SIFRE_UZUNLUGU) {
+    return Promise.reject(new Error(`Şifre en az ${MIN_SIFRE_UZUNLUGU} karakter olmalıdır`));
+  }
+  if (!/[a-zA-ZçğıöşüÇĞİÖŞÜ]/.test(deger) || !/[0-9]/.test(deger)) {
+    return Promise.reject(new Error('Şifre en az bir harf ve bir rakam içermelidir'));
+  }
+  return Promise.resolve();
+};
+
+export default function Register() {
   const navigate = useNavigate();
+  const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
+  const [hata, setHata] = useState('');
+  const [basarili, setBasarili] = useState(false);
 
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    password: ''
-  });
-
-  const [message, setMessage] = useState('');
-
-  const handleChange = (e) => {
-
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-
-  };
-
-  const handleRegister = async (e) => {
-
-    e.preventDefault();
-
+  const handleRegister = async (values) => {
+    setLoading(true);
+    setHata('');
     try {
+      await authService.register({
+        firstName: values.firstName,
+        lastName: values.lastName,
+        email: values.email,
+        password: values.password,
+      });
 
-      const response = await authService.register(formData);
-
-      console.log('Kayıt başarılı:', response);
-
-      setMessage('Kayıt Başarılı! Giriş sayfasına yönlendiriliyorsunuz...');
-      setTimeout(() => navigate('/login'), 1200);
-
+      setBasarili(true);
+      setTimeout(() => navigate('/login/patient'), 1500);
     } catch (error) {
-
-      console.error('Kayıt hatası:', error);
-
-      if (error.response) {
-
-        // Backend iş kuralı hatalarını düz metin döndürür (örn. şifre politikası);
-        // nesne dönen durumlarda mesaj alanına düşeriz.
-        const data = error.response.data;
-        setMessage(
-          typeof data === 'string' && data.trim()
-            ? data
-            : `Hata: ${data?.message || 'Kayıt tamamlanamadı.'}`
-        );
-
+      // Backend iş kuralı hatalarını düz metin döndürür (şifre politikası, kullanılan e-posta)
+      const data = error.response?.data;
+      if (typeof data === 'string' && data.trim()) {
+        setHata(data);
+      } else if (error.response) {
+        setHata(data?.message || 'Kayıt tamamlanamadı.');
       } else if (error.request) {
-
-        setMessage(
-          'Sunucuya ulaşılamıyor. Lütfen backendin çalıştığından emin ol.'
-        );
-
+        setHata('Sunucuya ulaşılamıyor. Lütfen backend’in çalıştığından emin olun.');
       } else {
-
-        setMessage('Bir hata oluştu.');
+        setHata('Beklenmeyen bir hata oluştu.');
       }
-
+    } finally {
+      setLoading(false);
     }
-
   };
 
   return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#f0f2f5', padding: '24px 16px' }}>
+      <Card
+        title="MHRS - Hasta Kayıt"
+        style={{ width: 440, maxWidth: '100%', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+      >
+        <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
+          Kayıt olan her hesap <strong>hasta</strong> rolüyle açılır. Doktor ve yönetici
+          hesapları yalnızca yönetici tarafından tanımlanır.
+        </Typography.Paragraph>
 
-    <div
-      style={{
-        maxWidth: '400px',
-        margin: 'auto',
-        padding: '20px'
-      }}
-    >
+        {basarili && (
+          <Alert
+            type="success"
+            showIcon
+            icon={<CheckCircleOutlined />}
+            message="Kayıt başarılı!"
+            description="Giriş sayfasına yönlendiriliyorsunuz..."
+            style={{ marginBottom: 16 }}
+          />
+        )}
 
-      <h2>MHRS - Hasta Kayıt Sistemi</h2>
+        {hata && (
+          <Alert
+            type="error"
+            showIcon
+            message={hata}
+            closable
+            onClose={() => setHata('')}
+            style={{ marginBottom: 16 }}
+          />
+        )}
 
-      <form onSubmit={handleRegister}>
-
-        <div style={{ marginBottom: '10px' }}>
-
-          <input
-            type="text"
+        <Form form={form} layout="vertical" onFinish={handleRegister} disabled={basarili} requiredMark={false}>
+          <Form.Item
             name="firstName"
-            placeholder="Adınız"
-            value={formData.firstName}
-            onChange={handleChange}
-            required
-            style={{
-              width: '100%',
-              padding: '8px'
-            }}
-          />
+            label="Adınız"
+            rules={[{ required: true, message: 'Lütfen adınızı girin' }]}
+          >
+            <Input prefix={<UserOutlined />} placeholder="Adınız" size="large" />
+          </Form.Item>
 
-        </div>
-
-        <div style={{ marginBottom: '10px' }}>
-
-          <input
-            type="text"
+          <Form.Item
             name="lastName"
-            placeholder="Soyadınız"
-            value={formData.lastName}
-            onChange={handleChange}
-            required
-            style={{
-              width: '100%',
-              padding: '8px'
-            }}
-          />
+            label="Soyadınız"
+            rules={[{ required: true, message: 'Lütfen soyadınızı girin' }]}
+          >
+            <Input prefix={<IdcardOutlined />} placeholder="Soyadınız" size="large" />
+          </Form.Item>
 
-        </div>
-
-        <div style={{ marginBottom: '10px' }}>
-
-          <input
-            type="email"
+          <Form.Item
             name="email"
-            placeholder="E-posta Adresiniz"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            style={{
-              width: '100%',
-              padding: '8px'
-            }}
-          />
+            label="E-posta"
+            rules={[
+              { required: true, message: 'Lütfen e-posta adresinizi girin' },
+              { type: 'email', message: 'Geçerli bir e-posta adresi girin' },
+            ]}
+          >
+            <Input prefix={<MailOutlined />} placeholder="ornek@eposta.com" size="large" />
+          </Form.Item>
 
-        </div>
-
-        <div style={{ marginBottom: '10px' }}>
-
-          <input
-            type="password"
+          <Form.Item
             name="password"
-            placeholder="Şifreniz"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            minLength={8}
-            style={{
-              width: '100%',
-              padding: '8px'
-            }}
-          />
+            label="Şifre"
+            rules={[{ validator: sifreKuraliniDogrula }]}
+            extra={`En az ${MIN_SIFRE_UZUNLUGU} karakter, en az bir harf ve bir rakam içermeli.`}
+          >
+            <Input.Password prefix={<LockOutlined />} placeholder="Şifreniz" size="large" />
+          </Form.Item>
 
-          {/* Kural sunucuda uygulanır; buradaki metin yalnızca kullanıcıyı bilgilendirir */}
-          <small style={{ color: '#666' }}>
-            En az 8 karakter, en az bir harf ve bir rakam içermeli.
-          </small>
+          <Form.Item style={{ marginBottom: 8, marginTop: 24 }}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              block
+              size="large"
+              loading={loading}
+              icon={<UserAddOutlined />}
+            >
+              Kayıt Ol
+            </Button>
+          </Form.Item>
+        </Form>
 
-        </div>
+        <Divider style={{ margin: '16px 0' }} />
 
-        <button
-          type="submit"
-          style={{
-            width: '100%',
-            padding: '10px',
-            backgroundColor: '#007BFF',
-            color: 'white',
-            border: 'none'
-          }}
-        >
-          Kayıt Ol
-        </button>
-
-      </form>
-
-      {message && (
-
-        <p
-          style={{
-            marginTop: '15px',
-            fontWeight: 'bold'
-          }}
-        >
-          {message}
-        </p>
-
-      )}
-
-      <p style={{ marginTop: '15px', textAlign: 'center' }}>
-        Zaten hesabınız var mı? <Link to="/login">Giriş Yap</Link>
-      </p>
-
+        <Typography.Paragraph style={{ textAlign: 'center', marginBottom: 0 }}>
+          Zaten hesabınız var mı?{' '}
+          <Link to="/login/patient">
+            <UserSwitchOutlined /> Giriş Yap
+          </Link>
+        </Typography.Paragraph>
+      </Card>
     </div>
-
   );
-
-};
-
-export default Register;
+}

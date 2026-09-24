@@ -318,7 +318,7 @@ export default function DoctorDashboard() {
         </Button>
       </Header>
 
-      <Content style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
+      <Content style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
         <Card title="Klinik Çalışma Takvimi" style={{ marginBottom: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
           <p><TeamOutlined /> Günlük randevu kapasitenizi yönetebilir, hastalarınıza e-reçete ve vaka notu ekleyebilirsiniz.</p>
         </Card>
